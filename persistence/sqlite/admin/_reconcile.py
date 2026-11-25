@@ -270,10 +270,14 @@ def _apply_additive_schema(path: Path, budget: _Budget | None = None) -> None:
     budget.check()
     with closing(_connect_tracked_db(path, tracking_path=path, timeout=budget.busy_timeout(),
                                      isolation_level=None)) as conn:
-        _reapply_durability_barriers(conn)
         budget.arm(conn)
-        conn.execute('BEGIN IMMEDIATE')
         try:
+            # Preparation pragmas can run the VM too (notably on macOS).
+            # Their interruption must use the same bounded, non-corruption path.
+            _reapply_durability_barriers(conn)
+            budget.check()
+            conn.execute(f'PRAGMA busy_timeout={int(budget.busy_timeout() * 1000)}')
+            conn.execute('BEGIN IMMEDIATE')
             cursor = conn.cursor()
             apply_declared_schema(cursor, path.parent)
             # Postcondition, still inside the transaction: every declared table/column resolves.

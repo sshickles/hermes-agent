@@ -16,6 +16,8 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Iterator, Optional, Sequence
 
+from agent.transports.responses_errors import CONTENT_POLICY_ERROR_CODES
+
 logger = logging.getLogger(__name__)
 
 # Synthetic code for the OpenAI SDK rejecting a provider's SSE ``data:`` field
@@ -976,6 +978,8 @@ def _provider_special_cases(c: _Ctx) -> Optional[Verdict]:
     # Deterministic for this context: another provider would receive the same connector result.
     if c.code == "data_policy_denied":
         return _v(_R.data_policy_denied, retryable=False, should_fallback=False)
+    if c.code in CONTENT_POLICY_ERROR_CODES:
+        return _v(_R.content_policy_blocked, retryable=False, should_fallback=False)
     welcome = _nous_welcome_tier(c)
     if welcome is not None:
         return welcome

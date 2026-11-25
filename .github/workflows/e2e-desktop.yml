@@ -27,7 +27,7 @@ jobs:
     # Electron app under xvfb. vite, tsc and the Playwright workers all scale
     # with the core count: on 16 vCPU it ran past the 20-minute timeout twice,
     # against 13.3 min here.
-    runs-on: blacksmith-32vcpu-ubuntu-2404
+    runs-on: ${{ github.repository == 'NousResearch/hermes-agent' && 'blacksmith-32vcpu-ubuntu-2404' || 'ubuntu-24.04' }}
     timeout-minutes: 20
     outputs:
       review_status: ${{ steps.review-status.outputs.review_status }}

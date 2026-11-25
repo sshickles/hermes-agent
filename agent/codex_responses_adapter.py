@@ -13,6 +13,7 @@ import uuid
 from types import SimpleNamespace
 from typing import Any, Callable, Dict, Iterator, List, NamedTuple, Optional, TypeGuard
 
+from agent.transports.responses_errors import raise_responses_policy_error
 from agent.message_sanitization import coerce_tool_name, deterministic_call_id
 from agent.prompt_builder import DEFAULT_AGENT_IDENTITY
 from hermes_cli.route_identity import normalize_route_base_url
@@ -1368,6 +1369,7 @@ def _normalize_codex_response(
     ``issuer_kind`` / ``issuer_model`` are stamped onto captured reasoning items for provenance replay drops.
     ``recover_leaked_tool_call=False`` is for callers with no continuation (aux): tool-call-shaped text is
     then kept as ordinary content and judged by the same phase/completion gates as any other answer."""
+    raise_responses_policy_error(response)
     response_status = _lower_or_none(getattr(response, "status", None))
     incomplete_reason = str(_field(getattr(response, "incomplete_details", None), "reason", "") or "").strip().lower()
     response_incomplete_content_filter = response_status == "incomplete" and incomplete_reason == "content_filter"

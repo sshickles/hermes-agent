@@ -49,7 +49,7 @@ def test_restore_skips_a_primary_already_known_to_be_non_chat():
 
     assert restored is False
     assert (agent.provider, agent.model, agent._fallback_activated) == ("zai", "glm-5.2", True)
-    assert not any("Primary model restored" in notice for notice in emitted)
+    assert not any("Retrying primary model" in notice for notice in emitted)
 
     other, other_restored, _emitted = _restore_after_fallback("acme/text-to-image")
     assert other_restored is False
@@ -60,4 +60,4 @@ def test_restore_still_returns_a_chat_primary():
     _agent, restored, emitted = _restore_after_fallback("qwen3.7-plus")
 
     assert restored is True
-    assert any("Primary model restored" in notice for notice in emitted)
+    assert any("Retrying primary model" in notice for notice in emitted)

@@ -619,6 +619,35 @@ def test_slow_browse_reconcile_gives_up_inside_its_budget_and_boot_waits_it_out(
     assert "last_read_at" not in _session_columns(path)
 
 
+def test_connection_preparation_is_inside_the_browse_reconcile_budget(tmp_path, monkeypatch):
+    """Preparation can execute SQLite's VM before BEGIN, just like the schema changes."""
+    from persistence.sqlite.admin import _reconcile
+
+    home = _profile_home(tmp_path)
+    path = _pre_merge_store(home / "state.db")
+    before = _file_state(path)
+    started = []
+    completed = []
+
+    def expensive_preparation(conn):
+        started.append(True)
+        # Real read-only VM work, long enough to exceed the small test budget
+        # without relying on scheduler sleeps or pretending to be another OS.
+        conn.execute("WITH RECURSIVE work(n) AS (VALUES(0) UNION ALL "
+                     "SELECT n+1 FROM work WHERE n<100000000) SELECT sum(n) FROM work").fetchone()
+        completed.append(True)
+
+    monkeypatch.setattr(_reconcile, "BROWSE_RECONCILE_BUDGET_S", 3.0)
+    monkeypatch.setattr("persistence.sqlite._state.repair._reapply_durability_barriers", expensive_preparation)
+    with pytest.raises(HTTPException) as caught:
+        _open_session_db_at_path(path, read_only=True)
+    assert caught.value.status_code == 503
+    assert "nothing was changed" in caught.value.detail
+    assert started, "the deadline must expire during preparation, not the preceding ownership checks"
+    assert not completed, "connection preparation must be interrupted at the same deadline as DDL"
+    assert _file_state(path) == before
+
+
 def test_equal_cardinality_corrupt_index_plus_drift_is_not_written(tmp_path):
     """R2-3: quick_check does not compare index keys with the table, so two equal-size indexes
     with swapped root pages pass it. Browse must still refuse as corrupt and write nothing."""

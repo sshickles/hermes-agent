@@ -13,7 +13,7 @@ import uuid
 from types import SimpleNamespace
 from typing import Any, Callable, Dict, Iterator, List, NamedTuple, Optional, TypeGuard
 
-from agent.error_classifier import CONTENT_POLICY_ERROR_CODES
+from agent.transports.responses_errors import raise_responses_policy_error
 from agent.message_sanitization import coerce_tool_name, deterministic_call_id
 from agent.prompt_builder import DEFAULT_AGENT_IDENTITY
 from hermes_cli.route_identity import normalize_route_base_url
@@ -1232,23 +1232,6 @@ def _extract_responses_reasoning_text(item: Any) -> str:
     chunks = _text_chunks(getattr(item, "summary", None))
     text = getattr(item, "text", None)
     return "\n".join(chunks).strip() if chunks else (text.strip() if isinstance(text, str) else "")
-
-
-class ResponsesPolicyError(RuntimeError):
-    """Keep the provider's structured refusal available to the normal error classifier."""
-
-    def __init__(self, error: Any, status: str) -> None:
-        super().__init__(_format_responses_error(error, status))
-        self.body = {"code": _field(error, "code"), "message": _field(error, "message")}
-
-
-def raise_responses_policy_error(response: Any) -> None:
-    """A failed policy response is terminal even when it contains no output items."""
-    status = str(getattr(response, "status", "") or "").strip().lower()
-    error = getattr(response, "error", None)
-    code = str(_field(error, "code", "") or "").strip().lower()
-    if status == "failed" and code in CONTENT_POLICY_ERROR_CODES:
-        raise ResponsesPolicyError(error, status)
 
 
 def _format_responses_error(error_obj: Any, response_status: str) -> str:

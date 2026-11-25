@@ -19,7 +19,7 @@ from agent.reasoning_effort import (
 )
 from agent.transports.base import ProviderTransport
 from agent.transports.types import NormalizedResponse, ToolCall
-from agent.codex_responses_adapter import raise_responses_policy_error
+from agent.transports.responses_errors import raise_responses_policy_error
 from agent.codex_headers import is_official_codex_base_url
 
 logger = logging.getLogger(__name__)

@@ -1,10 +1,33 @@
 """Explicit Responses refusals stop the real turn without retry or provider fallback."""
+import os
+from pathlib import Path
+import subprocess
+import sys
 from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
 
 from run_agent import AIAgent
+
+
+@pytest.mark.parametrize("first_import", ["agent.transports.codex", "agent.model_metadata"])
+def test_provider_discovery_survives_cold_transport_import(tmp_path, first_import):
+    repo = Path(__file__).resolve().parents[2]
+    home = tmp_path / "home"
+    home.mkdir()
+    env = {key: value for key, value in os.environ.items() if key in {"PATH", "LANG", "TZ", "TMPDIR"}}
+    env.update(HOME=str(home), HERMES_HOME=str(home), HERMES_CONFIG_BACKEND="file", PYTHONPATH=str(repo))
+    script = f"""
+import {first_import}
+import model_tools
+from providers import get_provider_profile
+for name in ('nous', 'openrouter'):
+    assert get_provider_profile(name) is not None, name
+"""
+    result = subprocess.run([sys.executable, "-c", script], cwd=repo, env=env,
+                            capture_output=True, text=True, timeout=30, check=False)
+    assert result.returncode == 0, result.stderr
 
 
 @pytest.mark.parametrize("code", ["cyber_policy", "content_policy_violation", "content_filter"])
@@ -47,7 +70,8 @@ def test_nonpolicy_response_validation_is_preserved(status, output, valid):
 
 
 def test_auxiliary_normalization_preserves_structured_refusal():
-    from agent.codex_responses_adapter import _normalize_codex_response, ResponsesPolicyError
+    from agent.codex_responses_adapter import _normalize_codex_response
+    from agent.transports.responses_errors import ResponsesPolicyError
     from agent.error_classifier import classify_api_error, FailoverReason
 
     response = SimpleNamespace(status="failed", output=[], error={"code": "cyber_policy", "message": "Refused"})

@@ -16,6 +16,8 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Iterator, Optional, Sequence
 
+from agent.transports.responses_errors import CONTENT_POLICY_ERROR_CODES
+
 logger = logging.getLogger(__name__)
 
 # Synthetic code for the OpenAI SDK rejecting a provider's SSE ``data:`` field
@@ -71,9 +73,6 @@ class FailoverReason(enum.Enum):
 
 # Transient transport verdicts: the provider is expected back (the aux same-provider retry, the turn ladder).
 TRANSIENT_REASONS = frozenset({FailoverReason.timeout, FailoverReason.overloaded, FailoverReason.server_error})
-# Explicit provider refusal codes are terminal across transports.
-CONTENT_POLICY_ERROR_CODES = frozenset({"cyber_policy", "content_policy_violation", "content_filter"})
-
 # A refusal of the request's content or data policy: no resend, field strip or quota reading changes it.
 POLICY_REFUSAL_REASONS = frozenset({FailoverReason.data_policy_denied, FailoverReason.content_policy_blocked,
                                     FailoverReason.guardrail_blocked})

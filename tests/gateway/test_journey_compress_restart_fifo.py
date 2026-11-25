@@ -138,6 +138,12 @@ def test_followers_survive_compression_and_restart_in_order_exactly_once(tmp_pat
             else:
                 raise AssertionError('automatic compression never published')
             compacting = params
+            summary_index = next(i for i, r in enumerate(peer.requests) if r['model'] == 'summary')
+            # Summary input may shorten repetitive content; fixture markers retain message identity.
+            before['summarized'] = [m['content'].split()[0]
+                                    for m in json.loads(peer.requests[summary_index]['wire'])
+                                    if str(m.get('content', '')).startswith(('PRESSURE_', 'ACK_PRESSURE_'))]
+            assert before['summarized'], 'the summarizer must receive real conversation messages'
             children = rows('SELECT id FROM sessions WHERE parent_session_id=?', (sid,))
             assert len(children) == 1, children
             receipts = {compacting['input_id']: accepted['admission_id']}
@@ -196,9 +202,11 @@ def test_followers_survive_compression_and_restart_in_order_exactly_once(tmp_pat
         assert executed(compacting['text'][:12]) == before['compacting_requests'], 'compacted turn replayed'
         for name in FOLLOWERS:
             wire = next(r['wire'] for r in peer.requests if r['text'] == name)
-            # protect_first_n keeps PRESSURE_0 verbatim; the compacted middle is only inside the summary.
-            turns = [str(m.get('content', '')) for m in json.loads(wire)]
-            assert 'SUMMARY_RETAINED_FACTS' in wire and not any(t.startswith('PRESSURE_1 ') for t in turns), name
+            # The token-budgeted tail varies with prompt size. Check the actual summarized
+            # messages, not a fixed pressure turn that may legitimately remain in the tail.
+            turns = [str(m.get('content', '')).split()[0] for m in json.loads(wire) if m.get('content')]
+            assert 'SUMMARY_RETAINED_FACTS' in wire, name
+            assert not any(m in turns for m in before['summarized']), name
         settled = admissions()
         assert {r['target_session_id'] for r in settled} == {sid}
         assert [r['request_id'] for r in settled][-3:] == list(FOLLOWERS)

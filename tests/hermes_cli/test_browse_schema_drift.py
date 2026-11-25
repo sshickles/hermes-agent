@@ -626,21 +626,24 @@ def test_connection_preparation_is_inside_the_browse_reconcile_budget(tmp_path, 
     home = _profile_home(tmp_path)
     path = _pre_merge_store(home / "state.db")
     before = _file_state(path)
+    started = []
     completed = []
 
     def expensive_preparation(conn):
+        started.append(True)
         # Real read-only VM work, long enough to exceed the small test budget
         # without relying on scheduler sleeps or pretending to be another OS.
         conn.execute("WITH RECURSIVE work(n) AS (VALUES(0) UNION ALL "
-                     "SELECT n+1 FROM work WHERE n<10000000) SELECT sum(n) FROM work").fetchone()
+                     "SELECT n+1 FROM work WHERE n<100000000) SELECT sum(n) FROM work").fetchone()
         completed.append(True)
 
-    monkeypatch.setattr(_reconcile, "BROWSE_RECONCILE_BUDGET_S", 0.05)
+    monkeypatch.setattr(_reconcile, "BROWSE_RECONCILE_BUDGET_S", 3.0)
     monkeypatch.setattr("persistence.sqlite._state.repair._reapply_durability_barriers", expensive_preparation)
     with pytest.raises(HTTPException) as caught:
         _open_session_db_at_path(path, read_only=True)
     assert caught.value.status_code == 503
     assert "nothing was changed" in caught.value.detail
+    assert started, "the deadline must expire during preparation, not the preceding ownership checks"
     assert not completed, "connection preparation must be interrupted at the same deadline as DDL"
     assert _file_state(path) == before
 

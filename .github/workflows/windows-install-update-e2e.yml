@@ -55,7 +55,7 @@ jobs:
     # leaves each journey's lock uncontended. A new test_*.py gets its own job without editing
     # this file.
     name: Plan Windows install + update journeys
-    runs-on: blacksmith-2vcpu-ubuntu-2404
+    runs-on: ${{ github.repository == 'NousResearch/hermes-agent' && 'blacksmith-2vcpu-ubuntu-2404' || 'ubuntu-24.04' }}
     timeout-minutes: 5
     outputs:
       shards: ${{ steps.plan.outputs.shards }}
@@ -92,7 +92,7 @@ jobs:
     # Measured over two dispatches each: the longest job (test_crash_cells.py) took 16.1-17.8 min
     # on 8 vCPU, 16.6-18.2 on 4 vCPU, and 20.4 on 2 vCPU, where its mid-git-bootstrap kill cell
     # also missed its window. One journey per runner needs no more than 4 vCPU.
-    runs-on: blacksmith-4vcpu-windows-2025
+    runs-on: ${{ github.repository == 'NousResearch/hermes-agent' && 'blacksmith-4vcpu-windows-2025' || 'windows-2025' }}
     timeout-minutes: 45
     strategy:
       fail-fast: false

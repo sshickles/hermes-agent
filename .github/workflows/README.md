@@ -59,6 +59,15 @@ Stable Release completed (failed) → stable-release-publication.yml (rerun fail
 
 ## Things to know first
 
+### Fork runners
+
+The `ci.yaml` aggregate and its reusable workflows use standard GitHub-hosted
+Linux, macOS and Windows runners outside `NousResearch/hermes-agent`. This
+preserves all applicable lanes without requiring a fork to provision Blacksmith
+or the upstream Windows ARM runner pool. Fork Python suites use fewer workers
+and longer job timeouts to fit those machines; test selection is unchanged.
+Standalone release and Docker workflows still require their own infrastructure.
+
 ### Entry points vs reusable workflows
 
 | Kind | What starts it | Files |
